@@ -1,0 +1,1 @@
+<img src="images/Hospital-Icon.png" width="100%" />

@@ -1,0 +1,21 @@
+<?php
+date_default_timezone_set('Asia/Jakarta');
+$tgl = date('Y-m-d H:i:s');
+session_start();
+include "../../3rdparty/engine.php";
+//print_r($_POST);
+ini_set("display_errors", 1);
+extract($_POST);
+if ($_SESSION['rg_user'] != '') {
+if (isset($_POST)) {
+    $subject = $_POST['subject'];
+    $object = $_POST['object'];
+    $assesment = $_POST['assesment'];
+    $planning = $_POST['planning'];
+    $user_insert = $_SESSION['rg_user'];
+    $user_shift = $_SESSION['rg_shift'];
+    $id = $_POST['id'];
+    $update = $db->query("update tbl_fisio set subject='$subject', object='$object', assesment='$assesment', planning='$planning', tgl_soap='$tgl', user_insert='".$_SESSION['rg_user']."', user_shift='".$_SESSION['rg_shift']."' where id='$id'", 0);
+    echo "<script>window.location = '../../index.php?mod=penunjang_medis&submod=fisiotherapiInput'</script>";
+}
+}
