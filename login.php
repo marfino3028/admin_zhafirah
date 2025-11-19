@@ -143,8 +143,8 @@ if(isset($_SESSION['rg_user'])) {
     <div class="login-container">
         <div class="login-header">
             <img src="images/logo-haromain.png" alt="Wisata Haromain" onerror="this.style.display='none'">
-            <h4>DEMO TRAVEL</h4>
-            <h4>WISATA HAROMAIN</h4>
+            <h4>TRAVEL</h4>
+            <h4>Umroh & Haji</h4>
             <p style="color: #c4803f; font-weight: 600;">TOUR & TRAVEL</p>
             <p style="color: #34495e;">Travel Management System</p>
         </div>

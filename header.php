@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wisata Haromain - Travel Management System</title>
+    <title>Zhafira Umroh - Travel Management System</title>
     
     <!-- CSS -->
     <link href="vendor/theme/css/bootstrap.min.css" rel="stylesheet">
@@ -236,8 +236,8 @@
                     <img src="images/logo-kaaba.png" alt="Logo" style="width: 40px; height: 40px;" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'%3E%3Crect fill=\'%23667eea\' width=\'100\' height=\'100\'/%3E%3Ctext x=\'50\' y=\'50\' font-size=\'40\' text-anchor=\'middle\' dy=\'.3em\' fill=\'white\'%3EWH%3C/text%3E%3C/svg%3E'">
                     <img src="images/logo-book.png" alt="Logo" style="width: 40px; height: 40px; margin-left: 10px;" onerror="this.style.display='none'">
                 </div>
-                <h4 style="color: white; font-size: 13px; margin: 0; font-weight: 700;">DEMO TRAVEL</h4>
-                <h4 style="color: white; font-size: 13px; margin: 5px 0; font-weight: 700;">WISATA HAROMAIN</h4>
+                <h4 style="color: white; font-size: 13px; margin: 0; font-weight: 700;">TRAVEL</h4>
+                <h4 style="color: white; font-size: 13px; margin: 5px 0; font-weight: 700;">Umroh & Haji</h4>
                 <p style="color: #c4803f; font-size: 13px; margin: 0; font-weight: 600;">TOUR & TRAVEL</p>
                 <p style="color: #95a5a6; font-size: 11px; margin: 5px 0 0;">Travel Management System</p>
             </div>
