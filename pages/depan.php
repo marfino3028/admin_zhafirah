@@ -1,4 +1,7 @@
 <?php
+// Pastikan $db tersedia (sudah di-include dari default.php)
+global $db;
+
 // Get dashboard statistics
 $total_transaksi_umroh = $db->query("SELECT COALESCE(SUM(harga_paket * kuota_jamaah), 0) as total FROM tbl_paket_keberangkatan WHERE jenis_paket='umroh'");
 $total_pembayaran_umroh = $db->query("SELECT COALESCE(SUM(jumlah_bayar), 0) as total FROM tbl_pembayaran p LEFT JOIN tbl_pendaftaran_jamaah pj ON p.id_pendaftaran=pj.id LEFT JOIN tbl_paket_keberangkatan pk ON pj.id_paket_keberangkatan=pk.id WHERE pk.jenis_paket='umroh'");

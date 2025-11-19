@@ -1,23 +1,6 @@
 -- Database structure untuk Zhafirah Umroh System
 -- Pastikan database 'zhafirah' sudah dibuat
 
--- Tabel User
-CREATE TABLE IF NOT EXISTS `tbl_user` (
-  `userid` varchar(50) NOT NULL PRIMARY KEY,
-  `nama_user` varchar(100) NOT NULL,
-  `email` varchar(100) NOT NULL,
-  `password` varchar(255) NOT NULL,
-  `nip` varchar(50) DEFAULT NULL,
-  `status` enum('0','1') DEFAULT '1',
-  `force_ganti` enum('1','2') DEFAULT '1',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- Insert default admin user (password: admin123)
-INSERT INTO `tbl_user` (`userid`, `nama_user`, `email`, `password`, `status`) VALUES
-('admin', 'Administrator', 'admin@wisataharomain.com', '0192023a7bbd73250516f069df18b500', '1');
-
 -- Tabel Maskapai
 CREATE TABLE IF NOT EXISTS `tbl_maskapai` (
   `id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,

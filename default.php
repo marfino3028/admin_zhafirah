@@ -1,33 +1,39 @@
 <?php
-ini_set("display_errors", 0);
 session_start();
-include "3rdparty/engine.php";
-include "3rdparty/funcpages.php";
-date_default_timezone_set('Asia/Jakarta');
 
-if ($_SESSION['penjamin_user'] != "" or $_SESSION['penjamin_userid'] != "") {
-  //include "default.php";
-  include "header_penjamin.php";
-  if ($_GET['mod'] == 'logout') {
-      unset($_SESSION['penjamin_user']);
-      unset($_SESSION['penjamin_nama']);
-      unset($_SESSION['penjamin_shift']);
-      unset($_SESSION['penjamin_userid']);
-      echo '<script language="javascript">window.location = "index.php";</script>';
-  }
-  else {
-      if ($_GET['mod'] == "" and $_GET['submod'] == "") {
-          include "pages_penjamin/depan.php";
-      }
-      else if ($_GET['mod'] != "" and $_GET['submod'] != "") {
-          include "pages_penjamin/".$_GET['mod']."/".$_GET['submod'].".php";
-      }
-  }
-  include "footer.php";
+// Cek session - support both rg_user (dari login.php) dan id_user
+if (!isset($_SESSION['rg_user']) && !isset($_SESSION['id_user'])) {
+    header('Location: login.php');
+    exit;
 }
-else {
-    echo '<script type="text/javascript">window.location = "login.php";</script>';
+
+// Include database connection DULU (sudah ada $db di dalamnya)
+require_once '3rdparty/engine.php';
+
+// Make $db available globally
+global $db;
+
+// Baru include header (yang butuh $_SESSION)
+include 'header.php';
+
+// Get page parameter
+$page = isset($_GET['page']) ? $_GET['page'] : 'depan';
+
+// Security: prevent directory traversal
+$page = str_replace(['../', '..\\'], '', $page);
+$page = preg_replace('/[^a-zA-Z0-9_\/]/', '', $page);
+
+// Page routing
+$file_path = 'pages/' . $page . '.php';
+
+if (file_exists($file_path)) {
+    include $file_path;
+} else {
+    echo '<div class="alert alert-danger">';
+    echo '<i class="fas fa-exclamation-triangle"></i> ';
+    echo 'Halaman tidak ditemukan: ' . htmlspecialchars($page);
+    echo '</div>';
 }
+
+include 'footer.php';
 ?>
-
-
