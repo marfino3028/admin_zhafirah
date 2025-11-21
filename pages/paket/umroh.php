@@ -1,7 +1,17 @@
 <?php
-$data=$db->query("SELECT*FROM tbl_paket WHERE jenis_paket='umroh' ORDER BY nama_paket ASC");
+// Mengambil data paket umroh dari tabel 'packages'
+$data=$db->query("SELECT p.*, m.nama_maskapai as nama_maskapai FROM packages p LEFT JOIN tbl_maskapai m ON p.airline_id = m.id ORDER BY p.package_name ASC");
+
+// Ambil pesan sukses dari session
+$success_message = $_SESSION['success_message'] ?? '';
+$error_message = $_SESSION['error_message'] ?? '';
+unset($_SESSION['success_message'], $_SESSION['error_message']);
 ?>
 <style>
+@keyframes slideIn {
+    from { transform: translateY(-20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
 .btn-add{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;border:none;padding:12px 25px;border-radius:8px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:8px;transition:all .3s;margin-bottom:20px}
 .table-section{background:white;border-radius:10px;padding:25px;box-shadow:0 2px 8px rgba(0,0,0,.1)}
 .custom-table{width:100%;border-collapse:collapse}
@@ -9,63 +19,80 @@ $data=$db->query("SELECT*FROM tbl_paket WHERE jenis_paket='umroh' ORDER BY nama_
 .custom-table tbody td{padding:15px 10px;border-bottom:1px solid #ecf0f1;font-size:14px;color:#2c3e50}
 .custom-table tbody tr:hover{background:#f8f9fa}
 .badge-active{background:#27ae60;color:white;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600}
-.btn-action{padding:6px 12px;border-radius:6px;border:none;cursor:pointer;font-size:13px;margin-right:5px}
+.btn-action{padding:6px 12px;border-radius:6px;border:none;cursor:pointer;font-size:13px;margin-right:5px; text-decoration: none; display: inline-block;}
 .btn-edit{background:#f39c12;color:white}
 .btn-detail{background:#667eea;color:white}
-.btn-delete{background:#95a5a6;color:white}
+.btn-delete{background:#e74c3c;color:white}
 </style>
 <div class="table-section">
-<a href="?mod=paket&submod=add_umroh" class="btn-add">➕ Tambah Paket Umroh</a>
-<div style="margin-bottom:15px">
-<label>Show <select style="padding:5px;border:1px solid #ddd;border-radius:5px"><option>10</option></select> entries</label>
-<div style="float:right;display:flex;gap:10px">
-<button class="btn-action btn-detail">📄 Excel</button>
-<button class="btn-action btn-edit">🖨️ Print</button>
-<button class="btn-action btn-delete">🔄 Reset</button>
-<button class="btn-action btn-detail">🔃 Reload</button>
+<?php if ($success_message): ?>
+<div class="alert alert-success alert-dismissible fade show" role="alert" id="successAlert" style="background: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 15px; border-radius: 8px; margin-bottom: 20px; animation: slideIn 0.3s ease-out;">
+    <strong>✅ Berhasil!</strong> <?= htmlspecialchars($success_message) ?>
+    <button type="button" class="btn-close" onclick="this.parentElement.style.display='none'" aria-label="Close" style="float: right; background: transparent; border: none; font-size: 20px; cursor: pointer; opacity: 0.5;">&times;</button>
 </div>
+<script>
+setTimeout(function() {
+    var alert = document.getElementById('successAlert');
+    if (alert) {
+        alert.style.transition = 'opacity 0.5s ease-out';
+        alert.style.opacity = '0';
+        setTimeout(function() { alert.style.display = 'none'; }, 500);
+    }
+}, 5000);
+</script>
+<?php endif; ?>
+<?php if ($error_message): ?>
+<div class="alert alert-danger alert-dismissible fade show" role="alert" id="errorAlert" style="background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; padding: 15px; border-radius: 8px; margin-bottom: 20px; animation: slideIn 0.3s ease-out;">
+    <strong>❌ Error!</strong> <?= htmlspecialchars($error_message) ?>
+    <button type="button" class="btn-close" onclick="this.parentElement.style.display='none'" aria-label="Close" style="float: right; background: transparent; border: none; font-size: 20px; cursor: pointer; opacity: 0.5;">&times;</button>
 </div>
-<div style="margin-bottom:15px;float:right"><label>Search: <input type="text" style="padding:5px;border:1px solid #ddd;border-radius:5px"></label></div>
+<script>
+setTimeout(function() {
+    var alert = document.getElementById('errorAlert');
+    if (alert) {
+        alert.style.transition = 'opacity 0.5s ease-out';
+        alert.style.opacity = '0';
+        setTimeout(function() { alert.style.display = 'none'; }, 500);
+    }
+}, 7000);
+</script>
+<?php endif; ?>
+<a href="?page=paket/create" class="btn-add">➕ Tambah Paket</a>
+
 <table class="custom-table">
 <thead>
 <tr>
 <th>No</th>
-<th>Foto Brosur</th>
 <th>Kode Paket</th>
 <th>Nama Paket</th>
 <th>Tanggal Keberangkatan</th>
-<th>Jumlah Hari</th>
-<th>Nama Maskapai</th>
-<th>Rute Penerbangan</th>
-<th>Lokasi Keberangkatan</th>
+<th>Hari</th>
+<th>Maskapai</th>
 <th>Harga Paket</th>
-<th>Kuota Jamaah</th>
+<th>Kuota</th>
 <th>Status</th>
 <th>Action</th>
 </tr>
 </thead>
 <tbody>
 <?php if($data){foreach($data as $k=>$r){
-$tgl=date('d M Y',strtotime($r['tanggal_keberangkatan']));
-$maskapai=$db->query("SELECT nama_maskapai,rute_penerbangan FROM tbl_maskapai WHERE id='{$r['id_maskapai']}'");
+$tgl = $r['departure_date'] ? date('d M Y', strtotime($r['departure_date'])) : '-';
 ?>
 <tr>
 <td><?=($k+1)?></td>
-<td><img src="<?=$r['foto_brosur']?>" style="width:50px;height:50px;object-fit:cover;border-radius:5px" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\'%3E%3Crect fill=\'%23ddd\' width=\'50\' height=\'50\'/%3E%3C/svg%3E'"></td>
-<td><?=$r['kode_paket']?></td>
-<td><strong style="color:#667eea"><?=$r['nama_paket']?></strong></td>
+<td><?=$r['package_code']?></td>
+<td><strong style="color:#667eea"><?=$r['package_name']?></strong></td>
 <td><?=$tgl?></td>
-<td><?=$r['jumlah_hari']?> Hari</td>
-<td><?=$maskapai[0]['nama_maskapai']?></td>
-<td><?=$maskapai[0]['rute_penerbangan']?></td>
-<td><?=$r['lokasi_keberangkatan']?></td>
-<td>Rp <?=number_format($r['harga_paket'],0,',','.')?></td>
-<td><?=$r['kuota_jamaah']?> Pax</td>
-<td><span class="badge-active">Active</span></td>
+<td><?=$r['duration_days']?> Hari</td>
+<td><?=$r['nama_maskapai']?></td>
+<td>Rp <?=number_format($r['price'],0,',','.')?></td>
+<td><span style="color: <?= $r['remaining_quota'] <= 5 ? 'var(--danger-color)' : 'var(--success-color)' ?>">
+                                    <?= $r['remaining_quota'] ?> / <?= $r['quota'] ?> seat
+                                </span></td>
+<td><span class="badge-active"><?=ucfirst($r['status'])?></span></td>
 <td>
-<button class="btn-action btn-edit">✏️</button>
-<button class="btn-action btn-detail">👁️</button>
-<button class="btn-action btn-delete">🗑️</button>
+<a href="?page=paket/edit&id=<?=$r['id']?>" class="btn-action btn-edit">✏️ Edit</a>
+<a href="?page=paket/delete&id=<?=$r['id']?>" class="btn-action btn-delete" onclick="return confirm('Apakah Anda yakin ingin menghapus paket <?=htmlspecialchars($r['package_name'])?>?')">🗑️ Hapus</a>
 </td>
 </tr>
 <?php }}?>

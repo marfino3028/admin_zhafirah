@@ -204,7 +204,7 @@ $data = $db->query("SELECT ph.*, pk.nama_paket, pk.kode_keberangkatan
 
         <div class="table-section">
             <div class="table-controls">
-                <a href="?mod=pengeluaran&submod=haji_add" class="btn-add">
+                <a href="?page=pengeluaran/form_pengeluaran_haji" class="btn-add">
                     ➕ Tambah Pengeluaran Haji
                 </a>
                 <div>

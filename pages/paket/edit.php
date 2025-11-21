@@ -1,29 +1,26 @@
 <?php
-// Bagian ini akan di-include oleh index.php, jadi koneksi database sudah ada.
-// session_start() juga sudah ada di index.php.
-
 // PENTING: Proses form HARUS di paling atas sebelum ada output HTML
+$formSubmitted = false;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     ini_set('display_errors', 1);
     ini_set('display_startup_errors', 1);
     error_reporting(E_ALL);
 
-    $db = new PDO('mysql:host=127.0.0.1;dbname=zhafirah_local;charset=utf8mb4', 'root', '', [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-    ]);
+    // Gunakan $db yang sudah ada dari engine.php (dipanggil di default.php)
+    global $db;
 
     try {
+        $package_id = (int)$_POST['package_id'];
+        
         // --- Ambil & sanitize input ---
-        $package_code = filter_input(INPUT_POST, 'package_code', FILTER_SANITIZE_STRING) ?: 'PK-'.strtoupper(uniqid());
+        $package_code = filter_input(INPUT_POST, 'package_code', FILTER_SANITIZE_STRING);
         $package_name = trim(filter_input(INPUT_POST, 'package_name', FILTER_SANITIZE_STRING) ?? '');
         $package_type = filter_input(INPUT_POST, 'package_type', FILTER_SANITIZE_STRING) ?: 'umroh';
         $description = trim($_POST['description'] ?? '');
         $price = (float)($_POST['price'] ?? 0);
         $duration_days = (int)($_POST['duration_days'] ?? 0);
-        $departure_date = trim($_POST['departure_date'] ?? ''); // format YYYY-MM-DD expected
+        $departure_date = trim($_POST['departure_date'] ?? '');
         $quota = (int)($_POST['quota'] ?? 0);
-        $remaining_quota = $quota; // Awalnya sama dengan quota
         $includes = trim($_POST['includes'] ?? '');
         $excludes = trim($_POST['excludes'] ?? '');
         $itinerary = trim($_POST['itinerary'] ?? '');
@@ -45,31 +42,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new Exception("Format tanggal keberangkatan tidak valid. Gunakan YYYY-MM-DD.");
         }
 
-        // --- Simpan ke DB (pakai transaction) ---
+        // --- Update ke DB (pakai transaction) ---
         $db->beginTransaction();
 
         $stmt = $db->prepare("
-            INSERT INTO packages (
-                package_code, package_name, package_type, description, price, 
-                duration_days, departure_date, quota, remaining_quota, 
-                includes, excludes, itinerary, hotel_makkah, hotel_madinah,
-                airline_id, status, featured, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            UPDATE packages SET
+                package_code = ?, package_name = ?, package_type = ?, description = ?, price = ?, 
+                duration_days = ?, departure_date = ?, quota = ?,
+                includes = ?, excludes = ?, itinerary = ?, hotel_makkah = ?, hotel_madinah = ?,
+                airline_id = ?, status = ?, featured = ?, updated_at = ?
+            WHERE id = ?
         ");
         
         $params = [
             $package_code, $package_name, $package_type, $description, $price,
-            $duration_days, $departure_date, $quota, $remaining_quota,
+            $duration_days, $departure_date, $quota,
             $includes, $excludes, $itinerary, $hotel_makkah, $hotel_madinah,
-            $airline_id, $status, $featured, $currentDateTime
+            $airline_id, $status, $featured, $currentDateTime, $package_id
         ];
 
         $stmt->execute($params);
         $db->commit();
 
-        // sukses: redirect ke paket/umroh menggunakan JavaScript
-        $_SESSION['success_message'] = "Paket berhasil ditambahkan!";
-        echo "<script>window.location.href='default.php?page=paket/umroh';</script>";
+        // sukses: redirect ke paket/umroh
+        $_SESSION['success_message'] = "Paket berhasil diperbarui!";
+        header('Location: default.php?page=paket/umroh');
         exit;
 
     } catch (Throwable $t) {
@@ -78,23 +75,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $db->rollBack();
         }
         // log detail error (untuk dev)
-        error_log("Paket save error: " . $t->getMessage() . " in " . $t->getFile() . ":" . $t->getLine());
-        // tampilkan pesan aman ke user
-        $_SESSION['error_message'] = "Terjadi kesalahan saat menyimpan data paket. " . ($t instanceof Exception ? $t->getMessage() : "Silakan cek log.");
+        error_log("Paket update error: " . $t->getMessage() . " in " . $t->getFile() . ":" . $t->getLine());
+        // tampilkan pesan aman ke user (form akan ditampilkan di bawah)
+        $error_message = "Terjadi kesalahan saat memperbarui data paket. " . ($t instanceof Exception ? $t->getMessage() : "Silakan cek log.");
+    }
+    $formSubmitted = true;
+}
+
+// Periksa apakah ID ada di URL
+if (!isset($_GET['id']) || empty($_GET['id'])) {
+    echo "<div class='alert alert-danger'>ID Paket tidak valid.</div>";
+    exit;
+}
+
+$package_id = (int)$_GET['id'];
+
+// Gunakan $db yang sudah ada dari engine.php
+global $db;
+
+// Ambil data paket dari database
+$stmt = $db->prepare("SELECT * FROM packages WHERE id = ?");
+$stmt->execute([$package_id]);
+$package = $stmt->fetch();
+
+if (!$package) {
+    echo "<div class='alert alert-danger'>Data paket tidak ditemukan.</div>";
+    exit;
+}
+
+// Ambil pesan dari session atau dari error handling di atas
+if (!$formSubmitted) {
+    $success_message = $_SESSION['success_message'] ?? '';
+    $error_message = $_SESSION['error_message'] ?? '';
+    unset($_SESSION['success_message'], $_SESSION['error_message']);
+} else {
+    // Error message sudah diset di block catch di atas
+    $success_message = '';
+    if (!isset($error_message)) {
+        $error_message = '';
     }
 }
-
-// Inisialisasi koneksi database untuk form (jika belum ada dari POST)
-if (!isset($db)) {
-    $db = new PDO('mysql:host=127.0.0.1;dbname=zhafirah_local;charset=utf8mb4', 'root', '', [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-    ]);
-}
-
-$success_message = $_SESSION['success_message'] ?? '';
-$error_message = $_SESSION['error_message'] ?? '';
-unset($_SESSION['success_message'], $_SESSION['error_message']);
 
 // Ambil data maskapai untuk dropdown
 $airlines = $db->query("SELECT id, nama_maskapai FROM tbl_maskapai ORDER BY nama_maskapai ASC");
@@ -112,7 +132,7 @@ $airlines = $db->query("SELECT id, nama_maskapai FROM tbl_maskapai ORDER BY nama
     font-weight: 600;
     color: #2c3e50;
     margin-bottom: 20px;
-    border-bottom: 2px solid #667eea;
+    border-bottom: 2px solid #f39c12;
     padding-bottom: 10px;
 }
 .form-label {
@@ -125,11 +145,11 @@ $airlines = $db->query("SELECT id, nama_maskapai FROM tbl_maskapai ORDER BY nama
     padding: 10px 15px;
 }
 .form-control:focus, .form-select:focus {
-    border-color: #667eea;
-    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    border-color: #f39c12;
+    box-shadow: 0 0 0 0.2rem rgba(243, 156, 18, 0.25);
 }
-.btn-save {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+.btn-update {
+    background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
     color: white;
     border: none;
     padding: 12px 30px;
@@ -138,9 +158,9 @@ $airlines = $db->query("SELECT id, nama_maskapai FROM tbl_maskapai ORDER BY nama
     cursor: pointer;
     transition: all 0.3s;
 }
-.btn-save:hover {
+.btn-update:hover {
     transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 5px 15px rgba(243, 156, 18, 0.4);
 }
 .btn-cancel {
     background: #95a5a6;
@@ -165,17 +185,17 @@ $airlines = $db->query("SELECT id, nama_maskapai FROM tbl_maskapai ORDER BY nama
 .section-title {
     font-size: 16px;
     font-weight: 600;
-    color: #667eea;
+    color: #f39c12;
     margin-bottom: 15px;
 }
 .form-check-input:checked {
-    background-color: #667eea;
-    border-color: #667eea;
+    background-color: #f39c12;
+    border-color: #f39c12;
 }
 </style>
 
 <div class="form-section">
-    <h3 class="form-title">Tambah Data Paket Umroh Baru</h3>
+    <h3 class="form-title">✏️ Edit Data Paket Umroh</h3>
 
     <?php if ($success_message): ?>
         <div class="alert alert-success">
@@ -190,7 +210,8 @@ $airlines = $db->query("SELECT id, nama_maskapai FROM tbl_maskapai ORDER BY nama
     <?php endif; ?>
 
     <form action="" method="post">
-        <input type="hidden" name="package_type" value="umroh">
+        <input type="hidden" name="package_id" value="<?= $package['id'] ?>">
+        <input type="hidden" name="package_type" value="<?= htmlspecialchars($package['package_type']) ?>">
         
         <!-- Informasi Dasar Paket -->
         <div class="section-title">📋 Informasi Dasar Paket</div>
@@ -198,19 +219,18 @@ $airlines = $db->query("SELECT id, nama_maskapai FROM tbl_maskapai ORDER BY nama
             <div class="col-md-6 mb-3">
                 <label for="package_name" class="form-label">Nama Paket <span class="text-danger">*</span></label>
                 <input type="text" class="form-control" id="package_name" name="package_name" required 
-                       placeholder="Contoh: Umroh Reguler 9 Hari">
+                       value="<?= htmlspecialchars($package['package_name']) ?>">
             </div>
             <div class="col-md-6 mb-3">
-                <label for="package_code" class="form-label">Kode Paket</label>
-                <input type="text" class="form-control" id="package_code" name="package_code" 
-                       placeholder="Otomatis jika kosong (PK-xxxxx)">
+                <label for="package_code" class="form-label">Kode Paket <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="package_code" name="package_code" required
+                       value="<?= htmlspecialchars($package['package_code']) ?>">
             </div>
         </div>
 
         <div class="mb-3">
             <label for="description" class="form-label">Deskripsi Paket</label>
-            <textarea class="form-control" id="description" name="description" rows="4" 
-                      placeholder="Jelaskan detail paket umroh, fasilitas, dan keunggulan paket ini..."></textarea>
+            <textarea class="form-control" id="description" name="description" rows="4"><?= htmlspecialchars($package['description']) ?></textarea>
         </div>
 
         <!-- Detail Keberangkatan -->
@@ -219,19 +239,22 @@ $airlines = $db->query("SELECT id, nama_maskapai FROM tbl_maskapai ORDER BY nama
         <div class="row">
             <div class="col-md-4 mb-3">
                 <label for="departure_date" class="form-label">Tanggal Keberangkatan <span class="text-danger">*</span></label>
-                <input type="date" class="form-control" id="departure_date" name="departure_date" required>
+                <input type="date" class="form-control" id="departure_date" name="departure_date" required
+                       value="<?= htmlspecialchars($package['departure_date']) ?>">
             </div>
             <div class="col-md-4 mb-3">
                 <label for="duration_days" class="form-label">Jumlah Hari <span class="text-danger">*</span></label>
                 <input type="number" class="form-control" id="duration_days" name="duration_days" 
-                       value="9" min="1" required placeholder="9">
+                       min="1" required value="<?= htmlspecialchars($package['duration_days']) ?>">
             </div>
             <div class="col-md-4 mb-3">
                 <label for="airline_id" class="form-label">Maskapai</label>
                 <select class="form-select" id="airline_id" name="airline_id">
                     <option value="">Pilih Maskapai</option>
                     <?php foreach ($airlines as $airline): ?>
-                        <option value="<?= $airline['id'] ?>"><?= htmlspecialchars($airline['nama_maskapai']) ?></option>
+                        <option value="<?= $airline['id'] ?>" <?= $airline['id'] == $package['airline_id'] ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($airline['nama_maskapai']) ?>
+                        </option>
                     <?php endforeach; ?>
                 </select>
             </div>
@@ -244,12 +267,12 @@ $airlines = $db->query("SELECT id, nama_maskapai FROM tbl_maskapai ORDER BY nama
             <div class="col-md-6 mb-3">
                 <label for="hotel_makkah" class="form-label">Hotel Makkah</label>
                 <input type="text" class="form-control" id="hotel_makkah" name="hotel_makkah" 
-                       placeholder="Contoh: Hotel Elaf Ajyad 4* (200m dari Masjidil Haram)">
+                       value="<?= htmlspecialchars($package['hotel_makkah']) ?>">
             </div>
             <div class="col-md-6 mb-3">
                 <label for="hotel_madinah" class="form-label">Hotel Madinah</label>
                 <input type="text" class="form-control" id="hotel_madinah" name="hotel_madinah" 
-                       placeholder="Contoh: Hotel Dar Al Eiman Royal 4* (100m dari Masjid Nabawi)">
+                       value="<?= htmlspecialchars($package['hotel_madinah']) ?>">
             </div>
         </div>
 
@@ -260,19 +283,20 @@ $airlines = $db->query("SELECT id, nama_maskapai FROM tbl_maskapai ORDER BY nama
             <div class="col-md-4 mb-3">
                 <label for="price" class="form-label">Harga Paket (Rp) <span class="text-danger">*</span></label>
                 <input type="number" class="form-control" id="price" name="price" required min="0" 
-                       placeholder="25000000">
+                       value="<?= htmlspecialchars($package['price']) ?>">
             </div>
             <div class="col-md-4 mb-3">
                 <label for="quota" class="form-label">Kuota Jamaah <span class="text-danger">*</span></label>
                 <input type="number" class="form-control" id="quota" name="quota" required min="1" 
-                       placeholder="45">
+                       value="<?= htmlspecialchars($package['quota']) ?>">
+                <small class="text-muted">Kuota tersisa saat ini: <?= $package['remaining_quota'] ?></small>
             </div>
             <div class="col-md-4 mb-3">
                 <label for="status" class="form-label">Status Paket</label>
                 <select class="form-select" id="status" name="status">
-                    <option value="active">Aktif</option>
-                    <option value="inactive">Tidak Aktif</option>
-                    <option value="full">Penuh</option>
+                    <option value="active" <?= $package['status'] == 'active' ? 'selected' : '' ?>>Aktif</option>
+                    <option value="inactive" <?= $package['status'] == 'inactive' ? 'selected' : '' ?>>Tidak Aktif</option>
+                    <option value="full" <?= $package['status'] == 'full' ? 'selected' : '' ?>>Penuh</option>
                 </select>
             </div>
         </div>
@@ -282,15 +306,13 @@ $airlines = $db->query("SELECT id, nama_maskapai FROM tbl_maskapai ORDER BY nama
         <div class="section-title">✅ Fasilitas Yang Termasuk</div>
         <div class="mb-3">
             <label for="includes" class="form-label">Includes</label>
-            <textarea class="form-control" id="includes" name="includes" rows="5" 
-                      placeholder="Pisahkan setiap item dengan enter. Contoh:&#10;Tiket pesawat PP Jakarta - Jeddah&#10;Visa Umroh&#10;Hotel bintang 4 di Makkah & Madinah&#10;Makan 3x sehari&#10;Transport AC selama di Arab Saudi&#10;Perlengkapan Umroh (koper, tas, buku manasik)&#10;Pembimbing Umroh berpengalaman&#10;Ziarah ke tempat bersejarah"></textarea>
+            <textarea class="form-control" id="includes" name="includes" rows="5"><?= htmlspecialchars($package['includes']) ?></textarea>
         </div>
 
         <!-- Fasilitas Yang Tidak Termasuk -->
         <div class="mb-3">
             <label for="excludes" class="form-label">Excludes</label>
-            <textarea class="form-control" id="excludes" name="excludes" rows="4" 
-                      placeholder="Pisahkan setiap item dengan enter. Contoh:&#10;Pengeluaran pribadi&#10;Tips guide/supir&#10;Laundry&#10;Biaya tambahan kelebihan bagasi"></textarea>
+            <textarea class="form-control" id="excludes" name="excludes" rows="4"><?= htmlspecialchars($package['excludes']) ?></textarea>
         </div>
 
         <!-- Itinerary -->
@@ -298,14 +320,14 @@ $airlines = $db->query("SELECT id, nama_maskapai FROM tbl_maskapai ORDER BY nama
         <div class="section-title">📅 Itinerary Perjalanan</div>
         <div class="mb-3">
             <label for="itinerary" class="form-label">Itinerary</label>
-            <textarea class="form-control" id="itinerary" name="itinerary" rows="8" 
-                      placeholder="Jelaskan jadwal perjalanan per hari. Contoh:&#10;&#10;HARI 1: Keberangkatan Jakarta - Jeddah&#10;Berkumpul di Bandara Soekarno Hatta, penerbangan menuju Jeddah&#10;&#10;HARI 2: Tiba di Jeddah - Makkah&#10;Tiba di Jeddah, perjalanan menuju Makkah, check-in hotel, istirahat&#10;&#10;HARI 3-6: Ibadah di Makkah&#10;Umroh, tawaf, sa'i, tahallul, ziarah ke tempat bersejarah&#10;&#10;HARI 7: Makkah - Madinah&#10;Perjalanan menuju Madinah, check-in hotel&#10;&#10;HARI 8: Ibadah di Madinah&#10;Sholat di Masjid Nabawi, ziarah Raudhah dan makam Rasulullah&#10;&#10;HARI 9: Madinah - Jeddah - Jakarta&#10;Perjalanan ke bandara, penerbangan pulang ke Jakarta"></textarea>
+            <textarea class="form-control" id="itinerary" name="itinerary" rows="8"><?= htmlspecialchars($package['itinerary']) ?></textarea>
         </div>
 
         <!-- Featured -->
         <div class="mb-3">
             <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="featured" name="featured" value="1">
+                <input class="form-check-input" type="checkbox" id="featured" name="featured" value="1" 
+                       <?= $package['featured'] == 1 ? 'checked' : '' ?>>
                 <label class="form-check-label" for="featured">
                     ⭐ Tampilkan sebagai Paket Unggulan/Featured
                 </label>
@@ -314,7 +336,7 @@ $airlines = $db->query("SELECT id, nama_maskapai FROM tbl_maskapai ORDER BY nama
         
         <div class="d-flex justify-content-end gap-2 mt-4">
             <a href="?page=paket/umroh" class="btn-cancel">Batal</a>
-            <button type="submit" class="btn-save">💾 Simpan Data Paket</button>
+            <button type="submit" class="btn-update">💾 Update Data Paket</button>
         </div>
     </form>
 </div>

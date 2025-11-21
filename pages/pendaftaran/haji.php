@@ -1,10 +1,26 @@
 <?php
-// Get data pendaftaran haji
-$data = $db->query("SELECT pj.*, pk.nama_paket, pk.kode_keberangkatan, pk.tanggal_keberangkatan
-    FROM tbl_pendaftaran_jamaah pj
-    LEFT JOIN tbl_paket_keberangkatan pk ON pj.id_paket_keberangkatan=pk.id
-    WHERE pk.jenis_paket='haji' AND pj.status='active'
-    ORDER BY pj.tanggal_registrasi DESC");
+// Mengambil data pendaftaran haji dari tabel 'bookings'
+$data = $db->query("
+    SELECT 
+        b.id as booking_id,
+        b.booking_code,
+        b.booking_date,
+        b.status as booking_status,
+        u.nik,
+        u.full_name,
+        u.gender,
+        u.birth_date,
+        u.city,
+        p.name as package_name,
+        p.package_code,
+        p.departure_date,
+        (SELECT COUNT(*) FROM bookings WHERE package_id = p.id AND status NOT IN ('cancelled', 'refunded')) as pax_count
+    FROM bookings b
+    JOIN users u ON b.user_id = u.id
+    JOIN packages p ON b.package_id = p.id
+    WHERE p.package_type = 'haji' AND b.status NOT IN ('cancelled', 'refunded')
+    ORDER BY b.booking_date DESC
+");
 ?>
 
 <style>
@@ -95,7 +111,7 @@ $data = $db->query("SELECT pj.*, pk.nama_paket, pk.kode_keberangkatan, pk.tangga
 <div class="row">
     <div class="col-md-12">
         <div class="table-section">
-            <a href="?mod=pendaftaran&submod=haji_add" class="btn-add">
+            <a href="?page=pendaftaran/haji_add" class="btn-add">
                 ➕ Tambah Pendaftaran Haji
             </a>
 
@@ -134,7 +150,7 @@ $data = $db->query("SELECT pj.*, pk.nama_paket, pk.kode_keberangkatan, pk.tangga
                             <th>Tanggal Lahir</th>
                             <th>Kota / Kabupaten</th>
                             <th>Nama Keberangkatan</th>
-                            <th>Tanggal Keberangkatan</th>
+                            <th>Jumlah Jamaah (Pax)</th>
                             <th>Action</th>
                         </tr>
                     </thead>
@@ -142,25 +158,23 @@ $data = $db->query("SELECT pj.*, pk.nama_paket, pk.kode_keberangkatan, pk.tangga
                         <?php 
                         if($data) {
                             foreach($data as $key => $row) { 
-                                $tgl_registrasi = date('d M Y', strtotime($row['tanggal_registrasi']));
-                                $tgl_lahir = date('d M Y', strtotime($row['tanggal_lahir']));
-                                $tgl_keberangkatan = date('d M Y', strtotime($row['tanggal_keberangkatan']));
+                                $tgl_registrasi = date('d M Y', strtotime($row['booking_date']));
+                                $tgl_lahir = date('d M Y', strtotime($row['birth_date']));
                         ?>
                         <tr>
                             <td><?php echo ($key + 1); ?></td>
                             <td><?php echo $tgl_registrasi; ?></td>
-                            <td><?php echo $row['kode_registrasi']; ?></td>
+                            <td><?php echo $row['booking_code']; ?></td>
                             <td><?php echo $row['nik']; ?></td>
-                            <td><strong style="color: #667eea;"><?php echo strtoupper($row['nama_jamaah']); ?></strong></td>
-                            <td><?php echo $row['jenis_kelamin']; ?></td>
+                            <td><strong style="color: #667eea;"><?php echo strtoupper($row['full_name']); ?></strong></td>
+                            <td><?php echo $row['gender']; ?></td>
                             <td><?php echo $tgl_lahir; ?></td>
-                            <td><?php echo $row['kota_kabupaten']; ?></td>
-                            <td><strong style="color: #667eea;"><?php echo $row['nama_paket']; ?></strong></td>
-                            <td><?php echo $tgl_keberangkatan; ?></td>
+                            <td><?php echo $row['city']; ?></td>
+                            <td><strong style="color: #667eea;"><?php echo $row['package_name']; ?></strong></td>
+                            <td><?php echo $row['pax_count']; ?> Pax</td>
                             <td>
-                                <button class="btn-action btn-edit" title="Edit">✏️</button>
-                                <button class="btn-action btn-detail" title="Detail">👁️</button>
-                                <button class="btn-action btn-delete" title="Delete">🗑️</button>
+                                <a href="#" class="btn-action btn-edit" title="Edit">✏️</a>
+                                <a href="#" class="btn-action btn-delete" title="Delete">🗑️</a>
                             </td>
                         </tr>
                         <?php 

@@ -1,5 +1,6 @@
 <?php
-$data=$db->query("SELECT pk.*,m.nama_maskapai FROM tbl_paket_keberangkatan pk LEFT JOIN tbl_maskapai m ON pk.id_maskapai=m.id WHERE pk.jenis_paket='umroh' ORDER BY pk.tanggal_keberangkatan DESC");
+// Mengambil data paket umroh dari tabel 'packages'
+$data=$db->query("SELECT p.*, m.name as nama_maskapai FROM packages p LEFT JOIN airlines m ON p.airline_id=m.id WHERE p.package_type='umroh' ORDER BY p.departure_date DESC");
 ?>
 <style>
 .btn-add{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;border:none;padding:12px 25px;border-radius:8px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:8px;transition:all .3s;margin-bottom:20px}
@@ -26,8 +27,8 @@ $data=$db->query("SELECT pk.*,m.nama_maskapai FROM tbl_paket_keberangkatan pk LE
 <thead>
 <tr>
 <th>No</th>
-<th>Kode Keberangkatan</th>
-<th>Nama Keberangkatan</th>
+<th>Kode Paket</th>
+<th>Nama Paket</th>
 <th>Tanggal Keberangkatan</th>
 <th>Jumlah Hari</th>
 <th>Nama Maskapai</th>
@@ -40,21 +41,22 @@ $data=$db->query("SELECT pk.*,m.nama_maskapai FROM tbl_paket_keberangkatan pk LE
 </thead>
 <tbody>
 <?php if($data){foreach($data as $k=>$r){
-$tgl=date('d M Y',strtotime($r['tanggal_keberangkatan']));
-$terisi=$db->query("SELECT COUNT(*)as total FROM tbl_pendaftaran_jamaah WHERE id_paket_keberangkatan='{$r['id']}'AND status='active'");
+$tgl=date('d M Y',strtotime($r['departure_date']));
+// Menghitung jamaah yang sudah booking dari tabel 'bookings'
+$terisi=$db->query("SELECT COUNT(*) as total FROM bookings WHERE package_id='{$r['id']}' AND status NOT IN ('cancelled', 'refunded')");
 ?>
 <tr>
 <td><?=($k+1)?></td>
-<td><?=$r['kode_keberangkatan']?></td>
-<td><strong style="color:#667eea"><?=$r['nama_paket']?></strong></td>
+<td><?=$r['package_code']?></td>
+<td><strong style="color:#667eea"><?=$r['name']?></strong></td>
 <td><?=$tgl?></td>
-<td><?=$r['jumlah_hari']?> Hari</td>
+<td><?=$r['days']?> Hari</td>
 <td><?=$r['nama_maskapai']?></td>
-<td><?=$r['rute_penerbangan']?></td>
-<td><?=$r['lokasi_keberangkatan']?></td>
-<td><?=$r['kuota_jamaah']?> Pax</td>
+<td><?=$r['flight_route']?></td>
+<td><?=$r['departure_location']?></td>
+<td><?=$r['quota']?> Pax</td>
 <td><?=$terisi[0]['total']?> Pax</td>
-<td><span class="badge-active">Active</span></td>
+<td><span class="badge-active"><?=ucfirst($r['status'])?></span></td>
 </tr>
 <?php }}?>
 </tbody>

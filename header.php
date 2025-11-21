@@ -94,15 +94,15 @@
             <li class="has-submenu">
                 <a href="javascript:void(0)"><i class="fas fa-users"></i> Jamaah</a>
                 <ul class="submenu">
-                    <li><a href="?page=jamaah/index">Daftar Jamaah</a></li>
-                    <li><a href="?page=jamaah/create">Tambah Jamaah</a></li>
+                    <li><a href="?page=jamaah/list">Daftar Jamaah</a></li>
+                    <li><a href="?page=jamaah/add">Tambah Jamaah</a></li>
                 </ul>
             </li>
             
             <li class="has-submenu">
                 <a href="javascript:void(0)"><i class="fas fa-box"></i> Paket</a>
                 <ul class="submenu">
-                    <li><a href="?page=paket/index">Paket Umroh</a></li>
+                    <li><a href="?page=paket/umroh">Paket</a></li>
                     <li><a href="?page=paket/create">Tambah Paket</a></li>
                 </ul>
             </li>
@@ -110,15 +110,15 @@
             <li class="has-submenu">
                 <a href="javascript:void(0)"><i class="fas fa-plane-departure"></i> Keberangkatan</a>
                 <ul class="submenu">
-                    <li><a href="?page=keberangkatan_umroh/index">Keberangkatan Umroh</a></li>
-                    <li><a href="?page=keberangkatan_haji/index">Keberangkatan Haji</a></li>
+                    <li><a href="?page=paket/keberangkatan">Keberangkatan Umroh</a></li>
+                    <li><a href="?page=paket/keberangkatan_haji">Keberangkatan Haji</a></li>
                 </ul>
             </li>
             
             <li class="has-submenu">
                 <a href="javascript:void(0)"><i class="fas fa-file-alt"></i> Pendaftaran</a>
                 <ul class="submenu">
-                    <li><a href="?page=pendaftaran/index">Pendaftaran Umroh</a></li>
+                    <li><a href="?page=pendaftaran/umroh">Pendaftaran Umroh</a></li>
                     <li><a href="?page=pendaftaran/haji">Pendaftaran Haji</a></li>
                 </ul>
             </li>
@@ -126,7 +126,7 @@
             <li class="has-submenu">
                 <a href="javascript:void(0)"><i class="fas fa-money-bill"></i> Pembayaran</a>
                 <ul class="submenu">
-                    <li><a href="?page=pembayaran/index">Pembayaran Umroh</a></li>
+                    <li><a href="?page=pembayaran/umroh">Pembayaran Umroh</a></li>
                     <li><a href="?page=pembayaran/haji">Pembayaran Haji</a></li>
                 </ul>
             </li>
@@ -134,7 +134,7 @@
             <li class="has-submenu">
                 <a href="javascript:void(0)"><i class="fas fa-receipt"></i> Pengeluaran</a>
                 <ul class="submenu">
-                    <li><a href="?page=pengeluaran/index">Pengeluaran Umroh</a></li>
+                    <li><a href="?page=pengeluaran/umroh">Pengeluaran Umroh</a></li>
                     <li><a href="?page=pengeluaran/haji">Pengeluaran Haji</a></li>
                     <li><a href="?page=pengeluaran/umum">Pengeluaran Umum</a></li>
                 </ul>
@@ -142,19 +142,19 @@
             
             <li class="menu-section">LAPORAN</li>
             
-            <li><a href="?page=pemasukan/index"><i class="fas fa-money-check-alt"></i> Pemasukan</a></li>
+            <li><a href="?page=pemasukan/umum"><i class="fas fa-money-check-alt"></i> Pemasukan</a></li>
             
-            <li><a href="?page=manifest/index"><i class="fas fa-list-alt"></i> Manifest</a></li>
+            <li><a href="?page=manifest/umroh"><i class="fas fa-list-alt"></i> Manifest</a></li>
             
             <li class="menu-section">PENGATURAN</li>
             
             <li class="has-submenu">
                 <a href="javascript:void(0)"><i class="fas fa-cog"></i> Master Data</a>
                 <ul class="submenu">
-                    <li><a href="?page=master/hotel">Hotel</a></li>
-                    <li><a href="?page=master/maskapai">Maskapai</a></li>
-                    <li><a href="?page=master/agent">Agent</a></li>
-                    <li><a href="?page=master/karyawan">Karyawan</a></li>
+                    <li><a href="?page=hotel/list">Hotel</a></li>
+                    <li><a href="?page=maskapai/list">Maskapai</a></li>
+                    <li><a href="?page=agent/list">Agent</a></li>
+                    <li><a href="?page=karyawan/list">Karyawan</a></li>
                 </ul>
             </li>
             

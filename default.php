@@ -23,57 +23,7 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'depan';
 $page = str_replace(['../', '..\\'], '', $page);
 $page = preg_replace('/[^a-zA-Z0-9_\/]/', '', $page);
 
-// Page routing dengan alias
-$routes = [
-    // Routing untuk keberangkatan
-    'keberangkatan_umroh/index' => 'paket/keberangkatan',
-    'keberangkatan_umroh/create' => 'paket/add_umroh',
-    'keberangkatan_haji/index' => 'paket/keberangkatan_haji',
-    'keberangkatan_haji/create' => 'paket/add_haji',
-    
-    // Routing untuk paket
-    'paket/index' => 'paket/umroh',
-    'paket/create' => 'paket/create',
-    
-    // Routing untuk pendaftaran
-    'pendaftaran/index' => 'pendaftaran/umroh',
-    'pendaftaran/haji' => 'pendaftaran/haji',
-    'pendaftaran/create' => 'pendaftaran/create',
-    
-    // Routing untuk pembayaran
-    'pembayaran/index' => 'pembayaran/umroh',
-    'pembayaran/haji' => 'pembayaran/haji',
-    'pembayaran/detail_umroh' => 'pembayaran/detail_pembayaran_umroh',
-    'pembayaran/detail_haji' => 'pembayaran/detail_pembayaran_haji',
-    
-    // Routing untuk pengeluaran
-    'pengeluaran/index' => 'pengeluaran/umroh',
-    'pengeluaran/haji' => 'pengeluaran/haji',
-    'pengeluaran/umum' => 'pengeluaran/umum',
-    
-    // Routing untuk pemasukan
-    'pemasukan/index' => 'pemasukan/umum',
-    
-    // Routing untuk manifest
-    'manifest/index' => 'manifest/umroh',
-    'manifest/form_umroh' => 'manifest/form_keberangkatan_umroh',
-    
-    // Routing untuk jamaah
-    'jamaah/index' => 'jamaah/list',
-    'jamaah/create' => 'jamaah/add',
-    'jamaah/add_step2' => 'jamaah/add_step2',
-    
-    // Routing untuk master data
-    'master/hotel' => 'hotel/list',
-    'master/maskapai' => 'maskapai/list',
-    'master/agent' => 'agent/list',
-    'master/karyawan' => 'karyawan/list',
-];
-
-// Check if route exists in alias
-if (isset($routes[$page])) {
-    $page = $routes[$page];
-}
+// No routing aliases needed - direct file paths
 
 // Build file path
 $file_path = 'pages/' . $page . '.php';

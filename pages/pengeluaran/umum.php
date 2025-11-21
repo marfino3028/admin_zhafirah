@@ -148,7 +148,7 @@ $data = $db->query("SELECT * FROM tbl_pengeluaran_umum $where ORDER BY tanggal_p
 
         <div class="table-section">
             <div class="table-controls">
-                <a href="?mod=pengeluaran&submod=umum_add" class="btn-add">
+                <a href="?page=pengeluaran/form_pengeluaran_umum" class="btn-add">
                     ➕ Tambah Pengeluaran Umum
                 </a>
                 <div>

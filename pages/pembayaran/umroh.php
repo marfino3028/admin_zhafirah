@@ -1,34 +1,58 @@
 <?php
-// Get list jamaah dan paket untuk filter
-$jamaah_list = $db->query("SELECT pj.*, pk.nama_paket 
-    FROM tbl_pendaftaran_jamaah pj 
-    LEFT JOIN tbl_paket_keberangkatan pk ON pj.id_paket_keberangkatan=pk.id
-    WHERE pk.jenis_paket='umroh' AND pj.status='active'
-    ORDER BY pj.nama_jamaah ASC");
+// Mengambil daftar jamaah dan paket untuk filter
+$jamaah_list = $db->query("
+    SELECT u.id, u.full_name 
+    FROM users u 
+    JOIN bookings b ON u.id = b.user_id
+    JOIN packages p ON b.package_id = p.id
+    WHERE p.package_type='umroh' AND b.status NOT IN ('cancelled', 'refunded')
+    GROUP BY u.id
+    ORDER BY u.full_name ASC
+");
 
-$paket_list = $db->query("SELECT * FROM tbl_paket_keberangkatan WHERE jenis_paket='umroh' ORDER BY tanggal_keberangkatan DESC");
+$paket_list = $db->query("SELECT id, name, package_code FROM packages WHERE package_type='umroh' ORDER BY departure_date DESC");
 
 // Handle filter
-$where = "WHERE pk.jenis_paket='umroh'";
-$id_jamaah = '';
-$id_paket = '';
+$where = "WHERE p.package_type='umroh'";
+$user_id = isset($_POST['user_id']) ? $_POST['user_id'] : '';
+$package_id = isset($_POST['package_id']) ? $_POST['package_id'] : '';
 
-if(isset($_POST['id_jamaah']) && $_POST['id_jamaah'] != '') {
-    $id_jamaah = $_POST['id_jamaah'];
-    $where .= " AND pb.id_pendaftaran = '$id_jamaah'";
+if($user_id != '') {
+    $where .= " AND b.user_id = '$user_id'";
 }
-if(isset($_POST['id_paket_keberangkatan']) && $_POST['id_paket_keberangkatan'] != '') {
-    $id_paket = $_POST['id_paket_keberangkatan'];
-    $where .= " AND pj.id_paket_keberangkatan = '$id_paket'";
+if($package_id != '') {
+    $where .= " AND b.package_id = '$package_id'";
 }
 
-// Get data pembayaran umroh
-$data = $db->query("SELECT pb.*, pj.nama_jamaah, pj.kode_registrasi, pk.nama_paket, pk.kode_keberangkatan
-    FROM tbl_pembayaran pb
-    LEFT JOIN tbl_pendaftaran_jamaah pj ON pb.id_pendaftaran=pj.id
-    LEFT JOIN tbl_paket_keberangkatan pk ON pj.id_paket_keberangkatan=pk.id
+// Mengambil data pembayaran umroh dari tabel payments dengan semua kolom
+$data = $db->query("
+    SELECT 
+        pay.id,
+        pay.booking_id,
+        pay.invoice_id,
+        pay.external_id,
+        pay.payment_method,
+        pay.payment_channel,
+        pay.amount,
+        pay.paid_amount,
+        pay.status,
+        pay.xendit_invoice_url,
+        pay.paid_at,
+        pay.expired_at,
+        pay.xendit_response,
+        pay.callback_data,
+        pay.created_at,
+        pay.updated_at,
+        u.full_name,
+        b.booking_code,
+        p.name as package_name
+    FROM payments pay
+    JOIN bookings b ON pay.booking_id = b.id
+    JOIN users u ON b.user_id = u.id
+    JOIN packages p ON b.package_id = p.id
     $where
-    ORDER BY pb.tanggal_bayar DESC");
+    ORDER BY pay.created_at DESC
+");
 ?>
 
 <style>
@@ -115,7 +139,23 @@ $data = $db->query("SELECT pb.*, pj.nama_jamaah, pj.kode_registrasi, pk.nama_pak
 .custom-table tbody tr:hover {
     background: #f8f9fa;
 }
-.badge-check {
+.badge-success {
+    background: #27ae60;
+    color: white;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+.badge-pending {
+    background: #f39c12;
+    color: white;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+.badge-expired {
     background: #e74c3c;
     color: white;
     padding: 5px 12px;
@@ -123,8 +163,8 @@ $data = $db->query("SELECT pb.*, pj.nama_jamaah, pj.kode_registrasi, pk.nama_pak
     font-size: 12px;
     font-weight: 600;
 }
-.badge-confirmed {
-    background: #27ae60;
+.badge-failed {
+    background: #95a5a6;
     color: white;
     padding: 5px 12px;
     border-radius: 20px;
@@ -140,25 +180,26 @@ $data = $db->query("SELECT pb.*, pj.nama_jamaah, pj.kode_registrasi, pk.nama_pak
     margin-right: 5px;
     transition: all 0.3s;
 }
+.btn-detail {
+    background: #667eea;
+    color: white;
+}
+.btn-detail:hover {
+    background: #5568d3;
+}
 .btn-edit {
     background: #f39c12;
     color: white;
 }
-.btn-detail {
-    background: #667eea;
-    color: white;
+.btn-edit:hover {
+    background: #e08e0b;
 }
 .btn-print {
     background: #95a5a6;
     color: white;
 }
-.btn-delete {
-    background: #95a5a6;
-    color: white;
-}
-.btn-action:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+.btn-print:hover {
+    background: #7f8c8d;
 }
 </style>
 
@@ -167,19 +208,19 @@ $data = $db->query("SELECT pb.*, pj.nama_jamaah, pj.kode_registrasi, pk.nama_pak
         <div class="filter-section">
             <div class="filter-row">
                 <div class="filter-col">
-                    <div class="filter-title">Filter Data Jamaah</div>
+                    <div class="filter-title">Filter Data Pembayaran Umroh</div>
                     <form method="POST" action="">
                         <div class="form-group">
                             <label class="form-label">Pilih Nama Jamaah</label>
-                            <select name="id_jamaah" class="form-select">
+                            <select name="user_id" class="form-select">
                                 <option value="">Pilih Nama Jamaah</option>
                                 <?php 
                                 if($jamaah_list) {
                                     foreach($jamaah_list as $jamaah) { 
-                                        $selected = ($id_jamaah == $jamaah['id']) ? 'selected' : '';
+                                        $selected = ($user_id == $jamaah['id']) ? 'selected' : '';
                                 ?>
                                 <option value="<?php echo $jamaah['id']; ?>" <?php echo $selected; ?>>
-                                    <?php echo $jamaah['nama_jamaah']; ?>
+                                    <?php echo $jamaah['full_name']; ?>
                                 </option>
                                 <?php 
                                     }
@@ -187,24 +228,18 @@ $data = $db->query("SELECT pb.*, pj.nama_jamaah, pj.kode_registrasi, pk.nama_pak
                                 ?>
                             </select>
                         </div>
-                        <button type="submit" class="btn-search">🔍 Cari</button>
-                    </form>
-                </div>
-
-                <div class="filter-col">
-                    <div class="filter-title">Filter Data Keberangkatan Umroh</div>
-                    <form method="POST" action="">
+                        
                         <div class="form-group">
                             <label class="form-label">Pilih Nama Keberangkatan Umroh</label>
-                            <select name="id_paket_keberangkatan" class="form-select">
+                            <select name="package_id" class="form-select">
                                 <option value="">Pilih Nama Keberangkatan Umroh</option>
                                 <?php 
                                 if($paket_list) {
                                     foreach($paket_list as $paket) { 
-                                        $selected = ($id_paket == $paket['id']) ? 'selected' : '';
+                                        $selected = ($package_id == $paket['id']) ? 'selected' : '';
                                 ?>
                                 <option value="<?php echo $paket['id']; ?>" <?php echo $selected; ?>>
-                                    <?php echo $paket['kode_keberangkatan']; ?> | <?php echo $paket['nama_paket']; ?>
+                                    <?php echo $paket['package_code']; ?> | <?php echo $paket['name']; ?>
                                 </option>
                                 <?php 
                                     }
@@ -212,7 +247,11 @@ $data = $db->query("SELECT pb.*, pj.nama_jamaah, pj.kode_registrasi, pk.nama_pak
                                 ?>
                             </select>
                         </div>
-                        <button type="submit" class="btn-search">🔍 Cari</button>
+                        
+                        <div style="display: flex; gap: 10px; margin-top: 20px;">
+                            <button type="submit" class="btn-search">🔍 Cari</button>
+                            <a href="?page=pembayaran/umroh" class="btn-search" style="background: #95a5a6;">🔄 Reset</a>
+                        </div>
                     </form>
                 </div>
             </div>
@@ -229,12 +268,6 @@ $data = $db->query("SELECT pb.*, pj.nama_jamaah, pj.kode_registrasi, pk.nama_pak
                     </select>
                     entries
                 </label>
-                <div style="float: right; display: flex; gap: 10px;">
-                    <button class="btn-action btn-detail">📄 Excel</button>
-                    <button class="btn-action btn-edit">🖨️ Print</button>
-                    <button class="btn-action btn-delete">🔄 Reset</button>
-                    <button class="btn-action btn-detail">🔃 Reload</button>
-                </div>
             </div>
 
             <div style="margin-bottom: 15px; float: right;">
@@ -246,14 +279,18 @@ $data = $db->query("SELECT pb.*, pj.nama_jamaah, pj.kode_registrasi, pk.nama_pak
                     <thead>
                         <tr>
                             <th>No</th>
-                            <th>Tanggal Pembayaran</th>
-                            <th>Kode Transaksi</th>
+                            <th>Kode Booking</th>
+                            <th>Invoice ID</th>
+                            <th>External ID</th>
                             <th>Nama Jamaah</th>
                             <th>Nama Keberangkatan</th>
-                            <th>Jumlah Pembayaran</th>
                             <th>Metode Pembayaran</th>
-                            <th>Status Pembayaran</th>
-                            <th>Kode Referensi</th>
+                            <th>Channel</th>
+                            <th>Amount</th>
+                            <th>Paid Amount</th>
+                            <th>Status</th>
+                            <th>Paid At</th>
+                            <th>Expired At</th>
                             <th>Action</th>
                         </tr>
                     </thead>
@@ -261,34 +298,54 @@ $data = $db->query("SELECT pb.*, pj.nama_jamaah, pj.kode_registrasi, pk.nama_pak
                         <?php 
                         if($data) {
                             foreach($data as $key => $row) { 
-                                $tanggal = date('d M Y', strtotime($row['tanggal_bayar']));
+                                $paid_at = $row['paid_at'] ? date('d M Y H:i', strtotime($row['paid_at'])) : '-';
+                                $expired_at = $row['expired_at'] ? date('d M Y H:i', strtotime($row['expired_at'])) : '-';
                         ?>
                         <tr>
                             <td><?php echo ($key + 1); ?></td>
-                            <td><?php echo $tanggal; ?></td>
-                            <td><?php echo $row['kode_transaksi']; ?></td>
-                            <td><strong style="color: #667eea;"><?php echo strtoupper($row['nama_jamaah']); ?></strong></td>
-                            <td><strong style="color: #667eea;"><?php echo $row['nama_paket']; ?></strong></td>
-                            <td>Rp <?php echo number_format($row['jumlah_bayar'], 0, ',', '.'); ?></td>
-                            <td><?php echo ucfirst($row['metode_bayar']); ?></td>
+                            <td><strong><?php echo $row['booking_code']; ?></strong></td>
+                            <td><?php echo $row['invoice_id'] ?: '-'; ?></td>
+                            <td><?php echo $row['external_id'] ?: '-'; ?></td>
+                            <td><strong style="color: #667eea;"><?php echo strtoupper($row['full_name']); ?></strong></td>
+                            <td><strong style="color: #667eea;"><?php echo $row['package_name']; ?></strong></td>
+                            <td><?php echo ucfirst($row['payment_method'] ?: '-'); ?></td>
+                            <td><?php echo ucfirst($row['payment_channel'] ?: '-'); ?></td>
+                            <td>Rp <?php echo number_format($row['amount'], 0, ',', '.'); ?></td>
+                            <td>Rp <?php echo number_format($row['paid_amount'], 0, ',', '.'); ?></td>
                             <td>
-                                <?php if($row['status_pembayaran'] == 'confirmed') { ?>
-                                    <span class="badge-confirmed">Confirmed</span>
-                                <?php } else { ?>
-                                    <span class="badge-check">Check</span>
-                                <?php } ?>
+                                <?php 
+                                switch($row['status']) {
+                                    case 'success':
+                                    case 'paid':
+                                        echo '<span class="badge-success">Success</span>';
+                                        break;
+                                    case 'pending':
+                                        echo '<span class="badge-pending">Pending</span>';
+                                        break;
+                                    case 'expired':
+                                        echo '<span class="badge-expired">Expired</span>';
+                                        break;
+                                    case 'failed':
+                                        echo '<span class="badge-failed">Failed</span>';
+                                        break;
+                                    default:
+                                        echo '<span class="badge-pending">' . ucfirst($row['status']) . '</span>';
+                                }
+                                ?>
                             </td>
-                            <td><?php echo $row['kode_referensi']; ?></td>
+                            <td><?php echo $paid_at; ?></td>
+                            <td><?php echo $expired_at; ?></td>
                             <td>
-                                <button class="btn-action btn-edit" title="Edit">✏️</button>
-                                <button class="btn-action btn-print" title="Print">🖨️</button>
-                                <button class="btn-action btn-delete" title="Delete">🗑️</button>
+                                <a href="?page=pembayaran/detail_pembayaran_umroh&id=<?php echo $row['id']; ?>" class="btn-action btn-detail" title="Detail">👁️</a>
+                                <?php if($row['xendit_invoice_url']) { ?>
+                                <a href="<?php echo $row['xendit_invoice_url']; ?>" target="_blank" class="btn-action btn-print" title="Invoice">🔗</a>
+                                <?php } ?>
                             </td>
                         </tr>
                         <?php 
                             }
                         } else {
-                            echo '<tr><td colspan="10" style="text-align:center;">Tidak ada data</td></tr>';
+                            echo '<tr><td colspan="14" style="text-align:center;">Tidak ada data pembayaran</td></tr>';
                         }
                         ?>
                     </tbody>

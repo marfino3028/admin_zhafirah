@@ -204,7 +204,7 @@ $data = $db->query("SELECT pu.*, pk.nama_paket, pk.kode_keberangkatan
 
         <div class="table-section">
             <div class="table-controls">
-                <a href="?mod=pengeluaran&submod=umroh_add" class="btn-add">
+                <a href="?page=pengeluaran/form_pengeluaran_umroh" class="btn-add">
                     ➕ Tambah Pengeluaran Umroh
                 </a>
                 <div>

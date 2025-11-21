@@ -65,6 +65,7 @@ global $db;
 //$db = new database("clinic_aulia", "P@ssw0rd", "rem", "103.169.7.54");
 //$db = new database("klinik", "123456789", "klinik", "localhost");
 // $db = new database("zhafirah", "Mahameru2025!", "technocare", "127.0.0.1");
+// $db = new database("zhafirah_local", "", "root", "127.0.0.1");
 $db = new database("zhafirah_local", "", "root", "127.0.0.1");
 
 ?>

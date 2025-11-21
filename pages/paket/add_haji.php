@@ -1,266 +1,241 @@
 <?php
-if($_SERVER['REQUEST_METHOD']=='POST'){
-$kode=$_POST['kode_paket'];
-$nama=$_POST['nama_paket'];
-$tanggal=$_POST['tanggal_keberangkatan'];
-$hari=$_POST['jumlah_hari'];
-$maskapai=$_POST['id_maskapai'];
-$rute=$_POST['rute_penerbangan'];
-$lokasi=$_POST['lokasi_keberangkatan'];
-$kuota=$_POST['kuota_jamaah'];
-$status=$_POST['status'];
+// Bagian ini akan di-include oleh index.php, jadi koneksi database sudah ada.
+// session_start() juga sudah ada di index.php.
 
-// Jenis Paket 1 (Varian-1)
-$jenis1=$_POST['jenis_paket1']??'';
-$hotel_mekkah1=$_POST['hotel_mekkah1']??'';
-$hotel_madinah1=$_POST['hotel_madinah1']??'';
-$hotel_transit1=$_POST['hotel_transit1']??'';
-$harga_quad1=$_POST['harga_quad1']??0;
-$harga_triple1=$_POST['harga_triple1']??0;
-$harga_double1=$_POST['harga_double1']??0;
+$success_message = '';
+$error_message = '';
 
-// Jenis Paket 2 (Varian-2)
-$jenis2=$_POST['jenis_paket2']??'';
-$hotel_mekkah2=$_POST['hotel_mekkah2']??'';
-$hotel_madinah2=$_POST['hotel_madinah2']??'';
-$hotel_transit2=$_POST['hotel_transit2']??'';
-$harga_hpp2=$_POST['harga_hpp2']??0;
-$harga_quad2=$_POST['harga_quad2']??0;
-$harga_triple2=$_POST['harga_triple2']??0;
-$harga_double2=$_POST['harga_double2']??0;
+// Ambil data maskapai untuk dropdown (fetchAll agar bisa di-foreach)
+$airlinesStmt = $db->query("SELECT id, name FROM airlines ORDER BY name ASC");
+$airlines = $airlinesStmt->fetchAll(PDO::FETCH_ASSOC);
 
-$termasuk=$_POST['termasuk']??'';
-$tidak_termasuk=$_POST['tidak_termasuk']??'';
-$syarat=$_POST['syarat']??'';
-$catatan=$_POST['catatan']??'';
+// Handle form submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    try {
+        // Ambil & sanitize input
+        $package_type = isset($_POST['package_type']) ? trim($_POST['package_type']) : 'umroh';
+        $package_code = isset($_POST['package_code']) && trim($_POST['package_code']) !== '' 
+                        ? trim($_POST['package_code']) 
+                        : 'PK-'.strtoupper(uniqid());
+        $name = trim($_POST['name'] ?? '');
+        $description = trim($_POST['description'] ?? '');
+        $departure_date = trim($_POST['departure_date'] ?? '');
+        $days = (int)($_POST['days'] ?? 0);
+        $airline_id = ($_POST['airline_id'] ?? '') !== '' ? (int)$_POST['airline_id'] : null;
+        $flight_route = trim($_POST['flight_route'] ?? '');
+        $departure_location = trim($_POST['departure_location'] ?? '');
+        $price = (float)($_POST['price'] ?? 0);
+        $quota = (int)($_POST['quota'] ?? 0);
+        $status = trim($_POST['status'] ?? 'active');
 
-$foto=$_FILES['foto']['name']??'';
-if($foto){
-$target="uploads/paket/".time()."_".$foto;
-move_uploaded_file($_FILES['foto']['tmp_name'],$target);
+        // Validasi dasar
+        if ($name === '' || $departure_date === '' || $price <= 0 || $quota <= 0) {
+            throw new Exception("Nama paket, tanggal keberangkatan, harga, dan kuota wajib diisi dan valid.");
+        }
+
+        // validasi tanggal sederhana (YYYY-MM-DD)
+        $d = DateTime::createFromFormat('Y-m-d', $departure_date);
+        if (!$d || $d->format('Y-m-d') !== $departure_date) {
+            throw new Exception("Format tanggal keberangkatan tidak valid. Gunakan YYYY-MM-DD.");
+        }
+
+        // --- Siapkan data untuk insert (named placeholders) ---
+        $data = [
+            'package_type' => $package_type,
+            'package_code' => $package_code,
+            'name' => $name,
+            'description' => $description,
+            'departure_date' => $departure_date,
+            'days' => $days,
+            'airline_id' => $airline_id,
+            'flight_route' => $flight_route,
+            'departure_location' => $departure_location,
+            'price' => $price,
+            'quota' => $quota,
+            'status' => $status,
+            // jika ingin menambahkan brochure_url nanti, tambahkan $data['brochure_url'] = $url;
+        ];
+
+        // Hapus key yang nilainya null agar query tidak memasukkan kolom dengan NULL jika tidak diinginkan
+        // (opsional — tergantung struktur tabel)
+        // foreach ($data as $k => $v) { if ($v === null) unset($data[$k]); }
+
+        // Bangun query dinamis
+        $columns = array_keys($data); // ['package_type', 'package_code', ...]
+        $placeholders = array_map(function($c){ return ':' . $c; }, $columns);
+
+        $sql = "INSERT INTO packages (" . implode(', ', $columns) . ", created_at)
+                VALUES (" . implode(', ', $placeholders) . ", NOW())";
+
+        // Convert params ke format :key => value
+        $bindParams = [];
+        foreach ($data as $col => $val) {
+            $bindParams[':' . $col] = $val;
+        }
+
+        // Execute dalam transaction
+        $db->beginTransaction();
+        $stmt = $db->prepare($sql);
+        $stmt->execute($bindParams);
+        $db->commit();
+
+        $success_message = "Data paket berhasil ditambahkan!";
+
+        // Redirect (jika mau langsung ke halaman list umroh)
+        header("Location: /default.php?page=paket/umroh");
+        exit;
+
+    } catch (Throwable $t) {
+        // rollback bila perlu
+        if (isset($db) && $db->inTransaction()) {
+            $db->rollBack();
+        }
+        // Log lengkap untuk dev, tampilkan pesan singkat ke user
+        error_log("Paket save error: " . $t->getMessage() . " in " . $t->getFile() . ":" . $t->getLine());
+        $error_message = "Terjadi kesalahan saat menyimpan data paket. " . $t->getMessage();
+    }
 }
-
-$db->query("INSERT INTO tbl_paket(kode_paket,nama_paket,jenis_paket,tanggal_keberangkatan,jumlah_hari,id_maskapai,rute_penerbangan,lokasi_keberangkatan,kuota_jamaah,status,
-jenis_paket1,hotel_mekkah1,hotel_madinah1,hotel_transit1,harga_quad1,harga_triple1,harga_double1,
-jenis_paket2,hotel_mekkah2,hotel_madinah2,hotel_transit2,harga_hpp2,harga_quad2,harga_triple2,harga_double2,
-termasuk,tidak_termasuk,syarat,catatan,foto_brosur)VALUES
-('$kode','$nama','haji','$tanggal','$hari','$maskapai','$rute','$lokasi','$kuota','$status',
-'$jenis1','$hotel_mekkah1','$hotel_madinah1','$hotel_transit1','$harga_quad1','$harga_triple1','$harga_double1',
-'$jenis2','$hotel_mekkah2','$hotel_madinah2','$hotel_transit2','$harga_hpp2','$harga_quad2','$harga_triple2','$harga_double2',
-'$termasuk','$tidak_termasuk','$syarat','$catatan','".($foto?$target:'')."')");
-echo'<script>alert("Data berhasil disimpan");window.location="?mod=paket&submod=haji"</script>';
-}
-$maskapai_list=$db->query("SELECT*FROM tbl_maskapai ORDER BY nama_maskapai");
-$hotel_list=$db->query("SELECT*FROM tbl_hotel ORDER BY nama_hotel");
 ?>
+
 <style>
-.form-section{background:white;border-radius:10px;padding:25px;box-shadow:0 2px 8px rgba(0,0,0,.1);margin-bottom:20px}
-.form-title{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:12px 20px;border-radius:8px;font-size:16px;font-weight:600;margin-bottom:20px;text-align:center}
-.form-label{font-size:14px;font-weight:600;color:#2c3e50;margin-bottom:8px;display:block}
-.form-label span{color:#f39c12;font-style:italic}
-.form-control,.form-select{border:1px solid #dfe4ea;border-radius:8px;padding:10px 15px;font-size:14px;width:100%;margin-bottom:15px}
-textarea.form-control{min-height:100px}
-.btn-back{background:#f39c12;color:white;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;margin-right:10px}
-.btn-save{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;border:none;padding:10px 30px;border-radius:8px;cursor:pointer}
-.upload-area{border:2px dashed #dfe4ea;border-radius:8px;padding:30px;text-align:center;background:#f8f9fa;cursor:pointer}
+.form-section {
+    background: white;
+    border-radius: 10px;
+    padding: 25px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.form-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #667eea;
+    padding-bottom: 10px;
+}
+.form-label {
+    font-weight: 600;
+    color: #34495e;
+}
+.form-control, .form-select {
+    border-radius: 8px;
+    border: 1px solid #dfe4ea;
+    padding: 10px 15px;
+}
+.btn-save {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+.btn-save:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+}
+.btn-cancel {
+    background: #95a5a6;
+    color: white;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+}
 </style>
-<form method="POST" enctype="multipart/form-data">
-<div class="row">
-<div class="col-md-8">
-<div class="form-section">
-<div class="form-title">Data Paket Haji</div>
-<div class="row">
-<div class="col-md-6">
-<label class="form-label">Kode Paket <span style="color:red">*</span></label>
-<input type="text" name="kode_paket" class="form-control" placeholder="PH-" required>
-</div>
-<div class="col-md-6">
-<label class="form-label">Nama Paket <span style="color:red">*</span></label>
-<input type="text" name="nama_paket" class="form-control" required>
-</div>
-<div class="col-md-6">
-<label class="form-label">Tanggal Keberangkatan <span style="color:red">*</span></label>
-<input type="date" name="tanggal_keberangkatan" class="form-control" required>
-</div>
-<div class="col-md-6">
-<label class="form-label">Jumlah Hari (Hari) <span style="color:red">*</span></label>
-<input type="number" name="jumlah_hari" class="form-control" required>
-</div>
-<div class="col-md-4">
-<label class="form-label">Status Paket <span style="color:red">*</span></label>
-<select name="status" class="form-select" required>
-<option value="active">Active</option>
-<option value="inactive">Inactive</option>
-</select>
-</div>
-<div class="col-md-4">
-<label class="form-label">Nama Maskapai <span style="color:red">*</span></label>
-<select name="id_maskapai" class="form-select" required>
-<option value="">Pilih Nama Maskapai</option>
-<?php foreach($maskapai_list as$m){?>
-<option value="<?=$m['id']?>"><?=$m['nama_maskapai']?></option>
-<?php }?>
-</select>
-</div>
-<div class="col-md-4">
-<label class="form-label">Rute Penerbangan <span style="color:red">*</span></label>
-<select name="rute_penerbangan" class="form-select" required>
-<option value="Direct">Direct</option>
-<option value="Transit">Transit</option>
-</select>
-</div>
-<div class="col-md-6">
-<label class="form-label">Lokasi Keberangkatan <span style="color:red">*</span></label>
-<select name="lokasi_keberangkatan" class="form-select" required>
-<option value="Jakarta">Jakarta</option>
-<option value="Surabaya">Surabaya</option>
-<option value="Medan">Medan</option>
-</select>
-</div>
-<div class="col-md-6">
-<label class="form-label">Kuota Jamaah (Pax) <span style="color:red">*</span></label>
-<input type="number" name="kuota_jamaah" class="form-control" required>
-</div>
-</div>
-</div>
 
 <div class="form-section">
-<div class="form-title">Jenis Paket 1 <span>(Varian-1)</span> <span style="color:red">*</span></div>
-<div class="row">
-<div class="col-md-12">
-<label class="form-label">Jenis Paket 1 <span>(Varian-1)</span></label>
-<input type="text" name="jenis_paket1" class="form-control">
-</div>
-<div class="col-md-4">
-<label class="form-label">Nama Hotel Mekkah <span>(Varian-1)</span> <span style="color:red">*</span></label>
-<select name="hotel_mekkah1" class="form-select">
-<option value="">Pilih Hotel Mekkah</option>
-<?php foreach($hotel_list as$h){?>
-<option value="<?=$h['id']?>"><?=$h['nama_hotel']?></option>
-<?php }?>
-</select>
-</div>
-<div class="col-md-4">
-<label class="form-label">Nama Hotel Madinah <span>(Varian-1)</span> <span style="color:red">*</span></label>
-<select name="hotel_madinah1" class="form-select">
-<option value="">Pilih Hotel Madinah</option>
-<?php foreach($hotel_list as$h){?>
-<option value="<?=$h['id']?>"><?=$h['nama_hotel']?></option>
-<?php }?>
-</select>
-</div>
-<div class="col-md-4">
-<label class="form-label">Nama Hotel Transit <span>(Varian-1)</span></label>
-<select name="hotel_transit1" class="form-select">
-<option value="">Pilih Hotel Transit</option>
-<?php foreach($hotel_list as$h){?>
-<option value="<?=$h['id']?>"><?=$h['nama_hotel']?></option>
-<?php }?>
-</select>
-</div>
-<div class="col-md-4">
-<label class="form-label">Harga Paket (Quad) <span>(Varian-1)</span> <span style="color:red">*</span></label>
-<input type="number" name="harga_quad1" class="form-control">
-</div>
-<div class="col-md-4">
-<label class="form-label">Harga Triple <span>(Varian-1)</span> <span style="color:red">*</span></label>
-<input type="number" name="harga_triple1" class="form-control">
-</div>
-<div class="col-md-4">
-<label class="form-label">Harga Double <span>(Varian-1)</span> <span style="color:red">*</span></label>
-<input type="number" name="harga_double1" class="form-control">
-</div>
-</div>
-</div>
+    <h3 class="form-title">Tambah Data Paket Haji Baru</h3>
 
-<div class="form-section">
-<div class="form-title">Jenis Paket 2 <span>(Varian-2)</span></div>
-<div class="row">
-<div class="col-md-12">
-<label class="form-label">Jenis Paket 2 <span>(Varian-2)</span></label>
-<input type="text" name="jenis_paket2" class="form-control">
-</div>
-<div class="col-md-4">
-<label class="form-label">Nama Hotel Mekkah <span>(Varian-2)</span></label>
-<select name="hotel_mekkah2" class="form-select">
-<option value="">Pilih Hotel Mekkah</option>
-<?php foreach($hotel_list as$h){?>
-<option value="<?=$h['id']?>"><?=$h['nama_hotel']?></option>
-<?php }?>
-</select>
-</div>
-<div class="col-md-4">
-<label class="form-label">Nama Hotel Madinah <span>(Varian-2)</span></label>
-<select name="hotel_madinah2" class="form-select">
-<option value="">Pilih Hotel Madinah</option>
-<?php foreach($hotel_list as$h){?>
-<option value="<?=$h['id']?>"><?=$h['nama_hotel']?></option>
-<?php }?>
-</select>
-</div>
-<div class="col-md-4">
-<label class="form-label">Nama Hotel Transit <span>(Varian-2)</span></label>
-<select name="hotel_transit2" class="form-select">
-<option value="">Pilih Hotel Transit</option>
-<?php foreach($hotel_list as$h){?>
-<option value="<?=$h['id']?>"><?=$h['nama_hotel']?></option>
-<?php }?>
-</select>
-</div>
-<div class="col-md-3">
-<label class="form-label">Harga HPP Paket <span>(Varian-2)</span></label>
-<input type="number" name="harga_hpp2" class="form-control">
-</div>
-<div class="col-md-3">
-<label class="form-label">Harga Paket (Quad) <span>(Varian-2)</span></label>
-<input type="number" name="harga_quad2" class="form-control">
-</div>
-<div class="col-md-3">
-<label class="form-label">Harga Triple <span>(Varian-2)</span></label>
-<input type="number" name="harga_triple2" class="form-control">
-</div>
-<div class="col-md-3">
-<label class="form-label">Harga Double <span>(Varian-2)</span></label>
-<input type="number" name="harga_double2" class="form-control">
-</div>
-</div>
-</div>
+    <?php if ($success_message): ?>
+        <div class="alert alert-success">
+            <?= htmlspecialchars($success_message) ?>
+        </div>
+    <?php endif; ?>
 
-<div class="form-section">
-<label class="form-label">Termasuk Paket <span>(Include)</span></label>
-<textarea name="termasuk" class="form-control"></textarea>
-</div>
+    <?php if ($error_message): ?>
+        <div class="alert alert-danger">
+            <?= htmlspecialchars($error_message) ?>
+        </div>
+    <?php endif; ?>
 
-<div class="form-section">
-<label class="form-label">Tidak Termasuk Paket <span>(Exclude)</span></label>
-<textarea name="tidak_termasuk" class="form-control"></textarea>
-</div>
+    <form action="" method="post" novalidate>
+        <input type="hidden" name="package_type" value="haji">
 
-<div class="form-section">
-<label class="form-label">Syarat dan Ketentuan <span>(Term & Condition)</span></label>
-<textarea name="syarat" class="form-control"></textarea>
-</div>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="name" class="form-label">Nama Paket <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="name" name="name" required value="<?= isset($_POST['name']) ? htmlspecialchars($_POST['name']) : '' ?>">
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="package_code" class="form-label">Kode Paket</label>
+                <input type="text" class="form-control" id="package_code" name="package_code" placeholder="Otomatis jika kosong" value="<?= isset($_POST['package_code']) ? htmlspecialchars($_POST['package_code']) : '' ?>">
+            </div>
+        </div>
 
-<div class="form-section">
-<label class="form-label">Catatan Paket <span>(Notes)</span></label>
-<textarea name="catatan" class="form-control"></textarea>
-</div>
-</div>
+        <div class="mb-3">
+            <label for="description" class="form-label">Deskripsi Paket</label>
+            <textarea class="form-control" id="description" name="description" rows="4"><?= isset($_POST['description']) ? htmlspecialchars($_POST['description']) : '' ?></textarea>
+        </div>
 
-<div class="col-md-4">
-<div class="form-section">
-<div class="form-title">Foto Paket Haji ℹ️</div>
-<div class="upload-area" onclick="document.getElementById('foto').click()">
-<div style="font-size:50px;color:#667eea">☁️⬆️</div>
-<p style="color:#7f8c8d">Klik untuk upload</p>
-<input type="file" id="foto" name="foto" style="display:none" accept="image/*">
-</div>
-</div>
-</div>
-</div>
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                <label for="departure_date" class="form-label">Tanggal Keberangkatan <span class="text-danger">*</span></label>
+                <input type="date" class="form-control" id="departure_date" name="departure_date" required value="<?= isset($_POST['departure_date']) ? htmlspecialchars($_POST['departure_date']) : '' ?>">
+            </div>
+            <div class="col-md-4 mb-3">
+                <label for="days" class="form-label">Jumlah Hari</label>
+                <input type="number" class="form-control" id="days" name="days" value="<?= isset($_POST['days']) ? (int)$_POST['days'] : 9 ?>">
+            </div>
+             <div class="col-md-4 mb-3">
+                <label for="departure_location" class="form-label">Lokasi Keberangkatan</label>
+                <input type="text" class="form-control" id="departure_location" name="departure_location" placeholder="Contoh: Jakarta" value="<?= isset($_POST['departure_location']) ? htmlspecialchars($_POST['departure_location']) : '' ?>">
+            </div>
+        </div>
 
-<div style="margin-top:20px;text-align:center">
-<button type="button" onclick="history.back()" class="btn-back">⬅ Kembali</button>
-<button type="submit" class="btn-save">💾 Tambah Paket Haji</button>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="airline_id" class="form-label">Maskapai</label>
+                <select class="form-select" id="airline_id" name="airline_id">
+                    <option value="">Pilih Maskapai</option>
+                    <?php foreach ($airlines as $airline): ?>
+                        <option value="<?= (int)$airline['id'] ?>" <?= isset($_POST['airline_id']) && $_POST['airline_id'] == $airline['id'] ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($airline['name']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="flight_route" class="form-label">Rute Penerbangan</label>
+                <input type="text" class="form-control" id="flight_route" name="flight_route" placeholder="Contoh: JKT-JED, MED-JKT" value="<?= isset($_POST['flight_route']) ? htmlspecialchars($_POST['flight_route']) : '' ?>">
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                <label for="price" class="form-label">Harga Paket (Rp) <span class="text-danger">*</span></label>
+                <input type="number" class="form-control" id="price" name="price" required min="0" value="<?= isset($_POST['price']) ? htmlspecialchars($_POST['price']) : '' ?>">
+            </div>
+            <div class="col-md-4 mb-3">
+                <label for="quota" class="form-label">Kuota Jamaah <span class="text-danger">*</span></label>
+                <input type="number" class="form-control" id="quota" name="quota" required min="0" value="<?= isset($_POST['quota']) ? htmlspecialchars($_POST['quota']) : '' ?>">
+            </div>
+            <div class="col-md-4 mb-3">
+                <label for="status" class="form-label">Status</label>
+                <select class="form-select" id="status" name="status">
+                    <option value="active" <?= (isset($_POST['status']) && $_POST['status'] === 'active') ? 'selected' : '' ?>>Aktif</option>
+                    <option value="inactive" <?= (isset($_POST['status']) && $_POST['status'] === 'inactive') ? 'selected' : '' ?>>Tidak Aktif</option>
+                    <option value="full" <?= (isset($_POST['status']) && $_POST['status'] === 'full') ? 'selected' : '' ?>>Penuh</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2 mt-4">
+            <a href="?mod=paket&submod=keberangkatan_haji" class="btn-cancel">Batal</a>
+            <button type="submit" class="btn-save">Simpan Data Paket</button>
+        </div>
+    </form>
 </div>
-</form>
